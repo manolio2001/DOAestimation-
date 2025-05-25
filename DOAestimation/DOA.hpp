@@ -44,3 +44,5 @@ vector<double> DOAsCurrentFrame(vector<vector<double>> current_data, int fft_siz
 vector<vector<double>> locate_zones(vector<double> &r, int size, double threshold);
 
 void DOA_Histogram(const vector<double> &Blockestimates,double windowlength,vector<double> &PlainHist,vector<double> &SmoothedHist);
+
+vector<double> processHist(vector<double>& Histogram, int NSources, double gaussWidth);

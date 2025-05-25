@@ -81,7 +81,7 @@ vector<vector<double>> ReadMatfile(string filen, string varname)
 int main()
 {
 
-    string filename = "./DOAestimation/angles_20_65.mat";
+    string filename = "angles_20_65.mat";
     string varname = "AuData";
 
     srand(time(NULL));

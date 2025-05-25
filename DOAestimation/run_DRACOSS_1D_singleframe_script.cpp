@@ -70,7 +70,7 @@ vector<vector<double>>ReadMatfile(string filen, string varname){
 int main(){
 
    //Path to the MATLAB file and the variable name
-   string filename = "./DOAestimation/angle_45.mat"; //MATLAB file containing the data
+   string filename = "angle_45.mat"; //MATLAB file containing the data
    string varname = "AuData"; //Variable name inside the .mat file to extract
 
    //Seed the random number generator with the current time

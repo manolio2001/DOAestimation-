@@ -63,16 +63,16 @@ vector<complex<double>> FFT(vector<double> &data, int fftsize)
     return result;
 }
 
-vector<vector<double>> Karabasi_estimation_AllbestBinPairs(
+vector<double> Karabasi_estimation_AllbestBinPairs(
     int best_zone, int NoEst, vector<vector<double>> &current_data,
     int frame_size, int fftsize, double zone_step, int K, int M,
     int ignore_bins, double c, int Fs, double radius)
 {
+    cout << "Karabasi_estimation_AllbestBinPairs called with NoEst: " << NoEst << endl;
     double a = 2 * M_PI / M;               // Angle between microphones
     double l = 2 * radius * sin(M_PI / M); // Distance between adjacent microphones
-    int ipair = 0;
-    vector<vector<double>> estimates(NoEst);
-    vector<vector<complex<double>>> FreqCorr;
+    vector<double> estimates;
+    vector<vector<complex<double>>> FreqCorr(M);
     vector<vector<double>> FreqCorr_abs(M, vector<double>(fftsize, 0.0));
     fftw_complex *in = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * fftsize);
     fftw_complex *out = (fftw_complex *)fftw_malloc(sizeof(fftw_complex) * fftsize);
@@ -84,10 +84,10 @@ vector<vector<double>> Karabasi_estimation_AllbestBinPairs(
     }
     
     fftw_plan p = fftw_plan_dft_1d(fftsize, in, out, FFTW_FORWARD, FFTW_ESTIMATE);
-    FreqCorr.resize(M);
+    
     for (int i = 0; i < M; i++)
     {
-        FreqCorr[ipair].resize(fftsize);
+        FreqCorr[i].resize(fftsize);
         vector<double> spart1(current_data.size());
         vector<double> spart2(current_data.size());
         for (int j = 0; j < current_data.size(); j++)
@@ -127,22 +127,17 @@ vector<vector<double>> Karabasi_estimation_AllbestBinPairs(
 
         if (beg >= 1 && beg - 1 + Xcomponent.size() <= fftsize)
         {
-            // Insert Xcomponents into the appropriate position
             copy(Xcomponent.begin(), Xcomponent.end(), Xhalfull.begin() + (beg - 1));
-
-            // Insert Ycomponents into the appropriate position
             copy(Ycomponent.begin(), Ycomponent.end(), Yhalfull.begin() + (beg - 1));
         }
 
         for (int l = 0; l < fftsize; l++)
         {
-            FreqCorr[ipair][l] = Xhalfull[l] * conj(Yhalfull[l]);
+            FreqCorr[i][l] = Xhalfull[l] * conj(Yhalfull[l]);
         }
-        ipair++;
     }
 
-    // After completing the loop for all M iterations, compute FreqCorr_abs
-    for (int p = 0; p < ipair; p++) // Iterate over all pairs
+    for (int p = 0; p < M; p++)
     {
         for (int l = 0; l < fftsize; l++)
         {
@@ -153,11 +148,10 @@ vector<vector<double>> Karabasi_estimation_AllbestBinPairs(
     vector<int> max_frq_cols;
     double max_val = 0.0;
     int max_col = 0, max_row = 0;
-    int rows = FreqCorr_abs.size();
     int cols = FreqCorr_abs[0].size();
     for (int n = 0; n < NoEst; n++)
     {
-        for (int i = 0; i < ipair; i++)
+        for (int i = 0; i < M; i++)
         {
             max_val = 0.0;
 
@@ -190,13 +184,12 @@ vector<vector<double>> Karabasi_estimation_AllbestBinPairs(
 
     for (int n = 0; n < NoEst; n++)
     {
-        int Wmax_all = 0;
-        Wmax_all = J[n];
-
-        vector<complex<double>> G(ipair);
-        vector<vector<complex<double>>> PRF(ipair, vector<complex<double>>(tangle.size()));
-        vector<vector<complex<double>>> CICS(ipair, vector<complex<double>>(tangle.size()));
-        for (int pair_count = 0; pair_count < ipair; pair_count++)
+        int Wmax_all = J[n];
+        cout << "Processing estimate " << n + 1 << " of " << NoEst << " with Wmax_all: " << Wmax_all << endl;
+        vector<complex<double>> G(M);
+        vector<vector<complex<double>>> PRF(M, vector<complex<double>>(tangle.size()));
+        vector<vector<complex<double>>> CICS(M, vector<complex<double>>(tangle.size()));
+        for (int pair_count = 0; pair_count < M; pair_count++)
         {
             G[pair_count] = FreqCorr[pair_count][Wmax_all] / abs(FreqCorr[pair_count][Wmax_all]);
             vector<double> td(tangle.size(), 0.0);
@@ -210,17 +203,12 @@ vector<vector<double>> Karabasi_estimation_AllbestBinPairs(
                 CICS[pair_count][w] = G[pair_count] * PRF[pair_count][w];
             }
         }
-        // for(int i = 0; i < PRF.size(); i++){
-        //     for(int j = 0; j < 10;j++){
-        //         cout<<PRF[i][j]<<endl;
-        //     }
-        // }
 
         vector<double> CICS_sum_abs(tangle.size(), 0.0);
         for (int i = 0; i < tangle.size(); i++)
         {
             complex<double> sum(0.0, 0.0);
-            for (int j = 0; j < ipair; j++)
+            for (int j = 0; j < M; j++)
             {
                 sum += CICS[j][i];
             }
@@ -235,13 +223,10 @@ vector<vector<double>> Karabasi_estimation_AllbestBinPairs(
         {
             estangle += 360.0;
         }
-        estimates[n].push_back(estangle);
+        estimates.push_back(estangle);
+        cout << "Added estimate: " << estangle << endl;
     }
-    // for(int i = 0; i < estimates.size(); i++){
-    //     for(int j = 0; j < estimates[i].size(); j++){
-    //         cout<<estimates[i][j]<<endl;
-    //     }
-    // }
+    cout << "Karabasi_estimation_AllbestBinPairs returning " << estimates.size() << " estimates" << endl;
     fftw_destroy_plan(p);
     fftw_free(in);
     fftw_free(out);
@@ -273,18 +258,15 @@ vector<double> DOAsCurrentFrame(vector<vector<double>> current_data, int fft_siz
     vector<vector<complex<double>>> FFT_data(fft_size, vector<complex<double>>(M));
     for (int i = 0; i < M; i++)
     {
-
         for (int j = 0; j < fft_size; j++)
         {
             if (j < windowed_data.size()) // Check time index is within bounds
             {
-
                 in[j][0] = windowed_data[j][i]; // Real part
                 in[j][1] = 0.0;                 // Imaginary part
             }
             else
             {
-
                 in[j][0] = 0.0; // Zero padding
                 in[j][1] = 0.0;
             }
@@ -295,7 +277,6 @@ vector<double> DOAsCurrentFrame(vector<vector<double>> current_data, int fft_siz
         //  Copy FFt results to FFT_data
         for (int k = 0; k < fft_size / 2 + 1; k++)
         {
-
             FFT_data[k][i] = complex<double>(out[k][0], out[k][1]);
         }
     }
@@ -379,29 +360,21 @@ vector<double> DOAsCurrentFrame(vector<vector<double>> current_data, int fft_siz
     vector<vector<double>> sorted_zones_descend = locate_zones(MCCs, MCCs.size(), MMC);
     reverse(sorted_zones_descend.begin(), sorted_zones_descend.end());
     int nb = sorted_zones_descend.size();
+    cout << "DOAsCurrentFrame: Found " << nb << " zones to process." << endl;
+    for (int z = 0; z < nb; z++) {
+        cout << "  Zone index: " << z << ", best_zone: " << sorted_zones_descend[z][1] << endl;
+    }
     vector<double> estimates;
 
     if (nb != 0)
     {
-
         for (int z = 0; z < nb; z++)
         {
             int best_zone = sorted_zones_descend[z][1];
-            vector<vector<double>> estimates_Karbasi = Karabasi_estimation_AllbestBinPairs(best_zone, NopEst, current_data, frame_size, fft_size, zone_step, K, M, ignore_bins, c, MyFs, radius);
-
-            if (!estimates_Karbasi.empty())
-            {
-                for (const auto &row : estimates_Karbasi) // Flattening the 2D vector
-                {
-                    estimates.insert(estimates.end(), row.begin(), row.end());
-                }
-            }
-            else
-            {
-                cout << "Warning: estimates_Karbasi is empty at z=" << z << endl;
-            }
+            vector<double> zone_estimates = Karabasi_estimation_AllbestBinPairs(best_zone, NopEst, current_data, frame_size, fft_size, zone_step, K, M, ignore_bins, c, MyFs, radius);
+            estimates.insert(estimates.end(), zone_estimates.begin(), zone_estimates.end());
         }
-        // Αν nb == 0, το estimates παραμένει άδειο
     }
+    cout << "DOAsCurrentFrame: Returning " << estimates.size() << " estimates." << endl;
     return estimates;
 }
